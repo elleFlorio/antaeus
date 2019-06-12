@@ -12,10 +12,7 @@ import io.pleo.antaeus.models.Customer
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
 import io.pleo.antaeus.models.Money
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
 class AntaeusDal(private val db: Database) {
@@ -38,6 +35,14 @@ class AntaeusDal(private val db: Database) {
         }
     }
 
+    fun fetchInvoices(status: InvoiceStatus): List<Invoice> {
+        return transaction(db) {
+            InvoiceTable
+                    .select { InvoiceTable.status.eq(status.name) }
+                    .map { it.toInvoice() }
+        }
+    }
+
     fun createInvoice(amount: Money, customer: Customer, status: InvoiceStatus = InvoiceStatus.PENDING): Invoice? {
         val id = transaction(db) {
             // Insert the invoice and returns its new id.
@@ -51,6 +56,21 @@ class AntaeusDal(private val db: Database) {
         }
 
         return fetchInvoice(id!!)
+    }
+
+    fun updateInvoice(updated: Invoice) : Invoice? {
+        val id = transaction(db) {
+            // Update invoice and returns the updated object
+            InvoiceTable
+                    .update({ InvoiceTable.id.eq(updated.id) }) {
+                it[this.value] = updated.amount.value
+                it[this.currency] = updated.amount.currency.name
+                it[this.status] = updated.status.name
+                it[this.customerId] = updated.id
+            }
+        }
+
+        return fetchInvoice(id)
     }
 
     fun fetchCustomer(id: Int): Customer? {
