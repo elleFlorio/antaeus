@@ -15,6 +15,7 @@ import java.math.BigDecimal
 class InvoiceServiceTest {
     private val paid = Invoice(404, 404, Money(BigDecimal(0), Currency.USD), InvoiceStatus.PAID)
     private val failed = paid.copy(status = InvoiceStatus.FAILED)
+
     private val dal = mockk<AntaeusDal> {
         every { fetchInvoice(404) } returns null
         every { updateInvoice(paid) } returns null
