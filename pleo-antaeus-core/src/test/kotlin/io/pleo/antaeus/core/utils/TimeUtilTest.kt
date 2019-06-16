@@ -26,5 +26,32 @@ class TimeUtilTest {
         }
     }
 
+    @Test
+    fun `will correctly validate days`() {
+        Assertions.assertTrue(TimeUtil.isValidStringDay("01"))
+        Assertions.assertTrue(TimeUtil.isValidStringDay("31"))
+        Assertions.assertFalse(TimeUtil.isValidStringDay("32"))
+        Assertions.assertFalse(TimeUtil.isValidStringDay("100"))
+        Assertions.assertFalse(TimeUtil.isValidStringDay("a"))
+    }
+
+    @Test
+    fun `will correctly validate hours`() {
+        Assertions.assertTrue(TimeUtil.isValidStringHour("01"))
+        Assertions.assertTrue(TimeUtil.isValidStringHour("23"))
+        Assertions.assertFalse(TimeUtil.isValidStringHour("32"))
+        Assertions.assertFalse(TimeUtil.isValidStringHour("100"))
+        Assertions.assertFalse(TimeUtil.isValidStringHour("a"))
+    }
+
+    @Test
+    fun `will correctly validate minutes`() {
+        Assertions.assertTrue(TimeUtil.isValidStringMinute("01"))
+        Assertions.assertTrue(TimeUtil.isValidStringMinute("59"))
+        Assertions.assertFalse(TimeUtil.isValidStringMinute("65"))
+        Assertions.assertFalse(TimeUtil.isValidStringMinute("100"))
+        Assertions.assertFalse(TimeUtil.isValidStringMinute("a"))
+    }
+
 
 }

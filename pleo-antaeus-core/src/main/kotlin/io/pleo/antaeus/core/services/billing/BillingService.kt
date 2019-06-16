@@ -10,12 +10,15 @@ import io.pleo.antaeus.core.notification.OutcomeType
 import io.pleo.antaeus.core.scheduler.Scheduler
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
+import io.pleo.antaeus.core.utils.TimeUtil
 import io.pleo.antaeus.core.utils.TimeUtil.generateRandomHour
 import io.pleo.antaeus.core.utils.TimeUtil.generateRandomMinutes
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
 import mu.KotlinLogging
+import kotlinx.coroutines.*
 
+private const val BILLING_DAY = "1"
 private const val NUM_MAX_RETRY = 3
 private val logger = KotlinLogging.logger {}
 
@@ -57,14 +60,24 @@ class BillingService(
     }
 
     fun startPeriodicBilling() {
-        val hour = generateRandomHour()
+        val hour = generateRandomHour(until = 22)
         val minutes = generateRandomMinutes()
-        scheduler.scheduleTask(paymentTask, hour, minutes)
-        logger.info { "periodic billing started: 1 of month at $hour:$minutes" }
+        setPeriodicBilling(BILLING_DAY, hour, minutes)
+    }
+
+    fun setPeriodicBilling(day: String, hour: String, minutes: String) {
+        if (scheduler.isTaskActive()) scheduler.stopActiveTask()
+
+        scheduler.scheduleTask(paymentTask, day, hour, minutes)
+        logger.info { "periodic billing scheduled: $day of month at $hour:$minutes" }
     }
 
     private val paymentTask: () -> Unit = {
+        logger.info { "Starting periodic billing task..." }
+
         val pending = invoiceService.fetchAllWithStatus(InvoiceStatus.PENDING)
+        logger.info {"Number of pending invoices: ${pending.size}"}
+
         val (paid, failed) = pending.map { tryPaymentRequest(it) }.partition { it.result }
 
         paid.map { paymentOutcome -> invoiceService.markAsPaid(paymentOutcome.invoice); paymentOutcome }
@@ -75,7 +88,7 @@ class BillingService(
                 .map { Message(it.invoice, it.outcome) }
                 .map { notificationService.notifyFailure(it) }
 
-        logger.debug { "Periodic billing executed: paid:${paid.size}, failed:${failed.size}" }
+        logger.info { "Periodic billing executed: paid:${paid.size}, failed:${failed.size}" }
     }
 
     fun tryPaymentRequest(invoice: Invoice, tentative: Int = 0): PaymentRequestOutcome {
@@ -87,19 +100,21 @@ class BillingService(
                 if (paid) PaymentRequestOutcome(invoice, true, OutcomeType.SUCCESS) else failure
             } catch (cnfe: CustomerNotFoundException) {
                 // Cannot handle this case, set proper outcome and delegate to operator/other service
-                logger.debug(cnfe) { "Cannot find customer" }
+                logger.warn(cnfe) { "Cannot find customer" }
                 PaymentRequestOutcome(invoice, false, OutcomeType.CUSTOMER_NOT_FOUND)
 
             } catch (cme: CurrencyMismatchException) {
                 // Convert the amount to customer currency and try another payment request
-                logger.debug(cme) { "Currency doesn't match, trying conversion" }
+                logger.warn(cme) { "Currency doesn't match, trying conversion" }
                 val convertedInvoice = convertCurrency(invoice)
                 convertedInvoice?.let { tryPaymentRequest(convertedInvoice) } ?: failure
 
             } catch (ne: NetworkException) {
                 // If there is a network error, I should retry NUM_MAX_RETRY times
-                logger.debug(ne) { "Network error, tentavive ${tentative + 1}" }
-                tryPaymentRequest(invoice, tentative + 1)
+                logger.warn(ne) { "Network error, tentavive ${tentative + 1}" }
+                runBlocking {
+                        retryPaymentRequest(invoice, tentative)
+                }
             }
         }
 
@@ -114,17 +129,29 @@ class BillingService(
                 invoice.copy(amount = convertedAmount)
 
             } catch (cnfe: CustomerNotFoundException) {
-                logger.debug(cnfe) { "Cannot find customer" }
+                logger.warn(cnfe) { "Cannot find customer" }
                 null
             } catch (cunfe: CurrencyNotFoundException) {
-                logger.debug(cunfe) { "Currency not found" }
+                logger.warn(cunfe) { "Currency not found" }
                 null
             } catch (ne: NetworkException) {
-                logger.debug(ne) { "Network error, tentavive ${tentative + 1}" }
-                convertCurrency(invoice, tentative + 1)
+                logger.warn(ne) { "Network error, tentavive ${tentative + 1}" }
+                runBlocking {
+                    retryConvertCurrency(invoice, tentative)
+                }
             }
         }
 
         return null
+    }
+
+    private suspend fun retryConvertCurrency(invoice: Invoice, tentative: Int = 0): Invoice? {
+        delay(TimeUtil.generateRandomDelayMillis())
+        return convertCurrency(invoice, tentative + 1)
+    }
+
+    private suspend fun retryPaymentRequest(invoice: Invoice, tentative: Int = 0): PaymentRequestOutcome {
+        delay(TimeUtil.generateRandomDelayMillis())
+        return tryPaymentRequest(invoice, tentative + 1)
     }
 }

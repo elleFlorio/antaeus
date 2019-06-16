@@ -58,10 +58,10 @@ internal fun getCurrencyConversionProvider(): CurrencyConversionProvider {
 internal fun getNotficationService(): NotificationService {
     return object: NotificationService {
         override fun notifySuccess(message: Message) {
-            logger.info { "Success message $message sent" }
+            logger.debug { "Success message $message sent" }
         }
         override fun notifyFailure(message: Message) {
-            logger.info { "Failure message $message sent" }
+            logger.debug { "Failure message $message sent" }
         }
     }
 }

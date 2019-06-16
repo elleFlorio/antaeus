@@ -10,6 +10,7 @@ import io.pleo.antaeus.core.exceptions.EntityNotFoundException
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
 import io.pleo.antaeus.core.services.billing.BillingService
+import io.pleo.antaeus.validation.Validator
 import mu.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -77,24 +78,38 @@ class AntaeusRest (
                    }
 
                    path("billing") {
-                       get{
-                            it.json(billingService.isPeriodicBillingActive())
-                       }
-
-                       post{
-                            val invoiceId = it.body().toInt()
-                           it.json(billingService.requestPayment(invoiceId))
+                       post {
+                           if (Validator.isValidInvoiceId(it.body())) {
+                               it.json(billingService.requestPayment(it.body().toInt()))
+                           } else {
+                               it.status(400)
+                           }
                        }
 
                        path("periodic") {
-                           post{
-                               billingService.startPeriodicBilling()
-                               it.json(true)
+                           get {
+                               it.json(billingService.isPeriodicBillingActive())
                            }
 
-                           delete{
+                           post {
+                               billingService.startPeriodicBilling()
+                               it.status(200)
+                           }
+
+                           put {
+                               if (Validator.isValidPeriodicScheduling(it.body())) {
+                                   val (day, hour, minute) = it.body().split(":")
+                                   billingService.setPeriodicBilling(day, hour, minute)
+                                   it.status(200)
+                               } else {
+                                   it.status(400)
+                               }
+
+                           }
+
+                           delete {
                                billingService.cancelPeriodicBilling()
-                               it.json(true)
+                               it.status(200)
                            }
                        }
                    }
