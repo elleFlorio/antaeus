@@ -43,7 +43,7 @@ The payment process can have different outcomes and present different issues, so
 ### Payment succeed
 The payment simply succeeds - i.e., the payment provider returns `true` as a response.
 
-![success use case diagram](img/ps.PNG)
+![success use case diagram](img/ps.png)
 
 1. we fetch the pending invoices
 2. we request a payment to the payment provider
@@ -54,7 +54,7 @@ The payment simply succeeds - i.e., the payment provider returns `true` as a res
 ### Payment fails
 The payment fails - i.e., the payment provider returns `false` as a response.
 
-![failure use case diagram](img/pf.PNG)
+![failure use case diagram](img/pf.png)
 
 There is not much we can do. We can mark the invoice as failed and send a notification that will be grabbed by an external service or an operator.
 1. we fetch the pending invoices
@@ -66,7 +66,7 @@ There is not much we can do. We can mark the invoice as failed and send a notifi
 ### Payment succeed - Currency converted
 The currency of the invoice does not match the one of the customer.
 
-![currency mismatch use case diagram](img/cm.PNG)
+![currency mismatch use case diagram](img/cm.png)
 
 We try a conversion using the currency conversion provider. If the conversion is done without problems, we try to request another payment. Otherwise, we return a failure outcome.
 1. we fetch the pending invoices
@@ -79,7 +79,7 @@ We try a conversion using the currency conversion provider. If the conversion is
 ### Payment fails - Customer not found
 The payment service cannot find the customer. We cannot handle this kind of failure here, so we mark the invoice as failed and notify the problem to an external service or an operator.
 
-![customer not found use case diagram](img/cnf.PNG)
+![customer not found use case diagram](img/cnf.png)
 
 1. we fetch the pending invoices
 2. we request a payment to the payment provider
@@ -90,7 +90,7 @@ The payment service cannot find the customer. We cannot handle this kind of fail
 ### Payment encounters some network error
 The payment provider encounters some network error. We can retry a fixed number of times with a random delay, hoping the network will work correctly.
 
-![network error use case diagram](img/ne.PNG)
+![network error use case diagram](img/ne.png)
 
 1. we fetch the pending invoices
 2. we request a payment to the payment provider
@@ -106,7 +106,7 @@ The rest API has been extended according to the current implementation. Please r
 In the current solution, the implementation of some components is missing - like the `CurrencyConversionProvider` and the `NotificationService` that are mocked. However, the implementation has been designed taking into consideration the scaling of the application.
 The design is depicted in the following diagram.
 
-![network error use case diagram](img/ha.PNG)
+![network error use case diagram](img/ha.png)
 
 The Antaeus service can be scaled to multiple instances for high availability. The periodic billing is scheduled at a random time of the day as a simple way to avoid concurrency between the service instances - assuming that in a more realistic deployment the database is external from the service. The `NotificationService` can be implemented using a Kafka Producer. Exploiting the capabilities of Kafka it is possible to deploy a simple monitoring system, for example capturing the messages using ElasticSearch for indexing and using it as a data source for Grafana. Other services can collect such messages and notify some human operator if required.
 
